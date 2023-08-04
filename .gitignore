@@ -1,7 +1,8 @@
 .*
 !/.gitignore
 IDE.log
-usb-test/Debug
-usb-test/_ide
+/usb-test/Debug
+/usb-test/_ide
+/RemoteSystemsTempFiles
 
 
