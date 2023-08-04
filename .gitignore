@@ -1,4 +1,6 @@
 .*
-/RemoteSystemsTempFiles
 IDE.log
+/usb-test/Debug
+/usb-test/_ide
+
 
