@@ -43,11 +43,11 @@ int main()
     status = hcd_start(hcdPtr, IntcPtr);	// Start interrupts and handles the enumeration of devices registers interrupt handler
     if(status == HCD_ERROR) return status;
 
-    while(hcdPtr->deviceConnected == 0){
+    while(hcdPtr->state != hcd_idle){
+    	//Waits until HCD finishes enumeration
     }
 
-
-    print("Device connected...\n\r");
+    print("Device connected and enumerated...\n\r");
 
 	int i=10000000;
 	while(1){
