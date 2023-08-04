@@ -1,0 +1,10 @@
+timestamp=[2023-08-04 12:55:36], mode=WORKBENCH_START, duration=0:00:08.559, duration_ms=8559, data={}
+timestamp=[2023-08-04 12:55:37], mode=PLATFORM_REPOSITORY_INIT, duration=0:00:00.081, duration_ms=81, data={}
+timestamp=[2023-08-04 12:55:37], mode=WORKBENCH_UI_INIT, duration=0:00:01.327, duration_ms=1327, data={editors_count=0, platform_editors_count=0, projects_count=0, platform_projects_count=0, active_platform_editor=false, projects=}
+timestamp=[2023-08-04 12:57:46], mode=WORKBENCH_START, duration=0:00:07.533, duration_ms=7533, data={}
+timestamp=[2023-08-04 12:57:47], mode=PLATFORM_REPOSITORY_INIT, duration=0:00:00.062, duration_ms=62, data={}
+timestamp=[2023-08-04 12:57:47], mode=WORKBENCH_UI_INIT, duration=0:00:01.314, duration_ms=1314, data={editors_count=0, platform_editors_count=0, projects_count=1, platform_projects_count=0, active_platform_editor=false, projects=RemoteSystemsTempFiles}
+timestamp=[2023-08-04 12:58:48], mode=PLATFORM_GENERATION, duration=0:00:28.648, duration_ms=28648, data={name=hdmi_video_out}
+timestamp=[2023-08-04 12:59:03], mode=BUILD, duration=0:00:01.608, duration_ms=1608, data={name=usb-test, configuration=Debug, clean_build=false}
+timestamp=[2023-08-04 12:59:14], mode=BUILD, duration=0:00:08.558, duration_ms=8558, data={name=usb-test_system, configuration=Debug, clean_build=false}
+timestamp=[2023-08-04 12:59:45], mode=BUILD, duration=0:00:00.802, duration_ms=802, data={name=usb-test, configuration=Debug, clean_build=false}
