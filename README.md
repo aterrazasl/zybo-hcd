@@ -3,7 +3,7 @@ Implementation of a simple USB host controller driver
 
 Goal:
 Create a USB controller driver capable of running outside the linux environment
-HCD (Host controller driver) should be light enough to run in small MCUs
+HCD (Host controller driver) should be light enough to run in small Zynq projects
 This particular implementation is based on the Zynq7000 and the Digilent Board Zybo Z7
 
 The HCD is based on the EHCI 1.1 released by Intel and should support as minimum for this first version the following:
