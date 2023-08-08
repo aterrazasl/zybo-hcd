@@ -6,7 +6,9 @@
 extern "C" {
 #endif
 
-#include "hcd.h"
+//#include "hcd.h"
+#include "xil_types.h"
+
 
 typedef struct {
 	u8  bmRequestType;	/**< bmRequestType in setup data */

@@ -9,8 +9,10 @@ extern "C" {
 #include "xil_types.h"
 #include "xil_cache.h"
 #include "hcd.h"
+#include "hcd_usbCh9.h"
+#include "hcd_hw.h"
 
-
+//bRequest
 #define GET_REPORT 0x01
 #define GET_IDLE 0x02
 #define GET_PROTOCOL 0x03
@@ -19,8 +21,16 @@ extern "C" {
 #define SET_IDLE 0x0A
 #define SET_PROTOCOL 0x0B
 
+//Report types
+#define REPORT_INPUT 1
+#define REPORT_OUTPUT 2
+#define REPORT_REATURE 3
+#define REPORT_RESERVED 4
+
 
 void hid_callbackHandler(void *CallBackRef, u32 Mask);
+void hid_requestReport(hcd_t *hcdPtr);
+
 
 #ifdef __cplusplus
 }

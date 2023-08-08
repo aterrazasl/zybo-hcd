@@ -49,12 +49,13 @@ int main()
 
     print("Device connected and enumerated...\n\r");
 
-	int i=10000000;
+	int i=20000000;
 	while(1){
 		i--;
 		if (i == 0){
-			i=10000000;
+			i=20000000;
 			// do something...
+			hid_requestReport(hcdPtr);
 		}
 
 

@@ -9,6 +9,7 @@ extern "C" {
 #include "xil_types.h"
 #include "xil_cache.h"
 #include "xscugic.h"
+#include "hcd_usbCh9.h"
 //#include "hcd_debug.h"
 
 /* Definitions */
@@ -288,7 +289,7 @@ int hcd_cleanup(hcd_t *hcdPtr);
 void hcd_printEP0(void);
 int hcd_connectClassHandler(hcd_t *hcdPtr, hcd_IntrHandlerFunc CallBackFunc,void *CallBackRef);
 void hcd_sendSetupData(hcd_t *hcdPtr,hcd_endpoint0* ep0Ptr);
-
+hcd_endpoint0* hcd_getEp0();
 
 #ifdef __cplusplus
 }

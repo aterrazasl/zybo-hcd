@@ -1,7 +1,6 @@
 #include "hcd_hw.h"
 #include "hcd.h"
 #include "xscugic.h"
-#include "hcd_usbCh9.h"
 
 
 
@@ -18,7 +17,7 @@ static void hcd_HostIntrHandler(void *HandlerRef);
 static void hcd_UsbHostIntrHandler(void *CallBackRef, u32 Mask);
 static void hcd_enumerationStateMachine(hcd_t *hcdPtr);
 
-static hcd_endpoint0* hcd_getEp0(){
+hcd_endpoint0* hcd_getEp0(){
 	hcd_endpoint0 *ep0Ptr = &ep0;
 	return ep0Ptr;
 }
@@ -506,7 +505,7 @@ static hcd_endpoint0* hcd_createSetConfiguration(u16 config){
 	return ep0Ptr;
 }
 
-static void hcd_sendSetupData(hcd_t *hcdPtr,hcd_endpoint0* ep0Ptr){
+void hcd_sendSetupData(hcd_t *hcdPtr,hcd_endpoint0* ep0Ptr){
 
 	hcd_configureQueues(hcdPtr);
 
@@ -539,7 +538,7 @@ static void hcd_sendSetupData(hcd_t *hcdPtr,hcd_endpoint0* ep0Ptr){
 		hcd_qTDEnque(hcdPtr->qTD[1], &qTD);
 		Xil_DCacheFlush();
 
-		xil_printf("setup length = %08X\r\n",ep0Ptr->setupData.wLength);
+//		xil_printf("setup length = %08X\r\n",ep0Ptr->setupData.wLength);
 
 		///// setup the next qTD
 		qTD.nextqTD 				= (int)hcdPtr->qTD[3] | 0x0;
@@ -856,7 +855,7 @@ static void hcd_UsbHostIntrHandler(void *CallBackRef, u32 Mask)
 	}
 
 	if(Mask & HCD_IXR_UI_MASK ){
-		xil_printf("[Interrupt] Transaction complete.. mask = %08X; count = %d\r\n",Mask,count);
+//		xil_printf("[Interrupt] Transaction complete.. mask = %08X; count = %d\r\n",Mask,count);
 //		AsyncScheduleTransactionComplete =1;
 	}
 	if(Mask & HCD_IXR_UE_MASK ){
@@ -879,23 +878,23 @@ static void hcd_UsbHostIntrHandler(void *CallBackRef, u32 Mask)
 	hcd_clearLED(1);
 	if(Mask & HCD_IXR_RCL_MASK ){
 		hcd_setLED(1);
-		xil_printf("[Interrupt] Host Reclamation status = 1... mask = %08X; count = %d\r\n",Mask,count);
+//		xil_printf("[Interrupt] Host Reclamation status = 1... mask = %08X; count = %d\r\n",Mask,count);
 	}
 
 	if(Mask & HCD_IXR_AA_MASK ){
-		xil_printf("[Interrupt] Async schedule advance. mask = %08X; count = %d\r\n",Mask,count);
+//		xil_printf("[Interrupt] Async schedule advance. mask = %08X; count = %d\r\n",Mask,count);
 //		AsyncScheduleAdvance =1;
 	}
 	if(Mask & HCD_IXR_SR_MASK ){
 //		xil_printf("[Interrupt] Start of Frame. \r\n");
 	}
 	if(Mask & HCD_IXR_AS_MASK){
-			xil_printf("[Interrupt] Async Sched Enabled!!. mask = %08X; count = %d\r\n",Mask,count);
+//			xil_printf("[Interrupt] Async Sched Enabled!!. mask = %08X; count = %d\r\n",Mask,count);
 	}
 
 	if(Mask & HCD_IXR_UA_MASK ){
 		qTDcount++;
-		xil_printf("[Interrupt] USB Transaction complete!. mask = %08X; count = %d; qTDCount = %d\r\n",Mask,count,qTDcount);
+//		xil_printf("[Interrupt] USB Transaction complete!. mask = %08X; count = %d; qTDCount = %d\r\n",Mask,count,qTDcount);
 		hcd_disableAsyncList(hcdPtr);
 
 	}
