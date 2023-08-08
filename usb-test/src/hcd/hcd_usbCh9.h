@@ -103,6 +103,11 @@ typedef struct {
 
 }hcd_endpoint0;
 
+typedef struct{
+	u8 endpointNum;
+
+}hcd_endpoint;
+
 
 #ifdef __cplusplus
 }

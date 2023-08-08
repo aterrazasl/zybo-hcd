@@ -5,7 +5,8 @@
 
 
 static hcd_t hcd;
-static u8 hcd_HostBuffer[MEMORY_SIZE] ALIGNMENT_CACHELINE;	//todo: replace this with Dynamic memory
+static u8 hcd_AsycHostBuffer[MEMORY_SIZE] ALIGNMENT_CACHELINE;	//todo: replace this with Dynamic memory
+static u8 hcd_PeriodicHostBuffer[MEMORY_SIZE] ALIGNMENT_CACHELINE;	//todo: replace this with Dynamic memory
 
 static hcd_standardInterfaceDescriptor 	ep0_interfaces[4];
 static hcd_standardEndpointDescriptor 	ep0_endpoints[2*4];
@@ -73,10 +74,10 @@ static void hcd_enableAsyncList(hcd_t *hcdPtr){
 static int hcd_WriteLists(hcd_t *hcdPtr){
 
 	/* Set the Queue Head List address. */
-	hcd_WriteReg(hcdPtr->config.BaseAddress, HCD_ASYNCLISTADDR_OFFSET, (u32)hcdPtr->QH[1]);
+	hcd_WriteReg(hcdPtr->config.BaseAddress, HCD_ASYNCLISTADDR_OFFSET, (u32)hcdPtr->asyncQH[0]);
 
 	/* Set the Queue Head List address. */
-	hcd_WriteReg(hcdPtr->config.BaseAddress, HCD_LISTBASE_OFFSET,(u32)hcdPtr->QH[0]);
+	hcd_WriteReg(hcdPtr->config.BaseAddress, HCD_LISTBASE_OFFSET,(u32)hcdPtr->periodicQH[0]);
 	return 0;
 }
 
@@ -84,27 +85,26 @@ static int hcd_configureUSBHost(hcd_t *hcdPtr){
 	/* Set the USB mode register to configure HOST mode. */
 	hcd_WriteReg(hcdPtr->config.BaseAddress, HCD_MODE_OFFSET, HCD_MODE_CM_HOST_MASK);
 
+	hcd_SetBits(hcdPtr, HCD_CMD_OFFSET, HCD_CMD_FS2_MASK | HCD_CMD_FS01_MASK);		// sets the frame list size to 8
+
 	return 0;
 }
 
-static void hcd_Initialize_Queues(hcd_t *hcdPtr){
+
+static void hcd_initializeQueues(hcd_t * hcdPtr, u8 * p){
+
 	int i,j;
-	u8 *p;
 
-	p = (u8 *) hcdPtr->PhysAligned;
-
-
-
-	//Initialize the QH pointers
+	//Initialize the async QH pointers
 	for (i = 0; i < HCD_MAX_QH; i++) {
-		hcdPtr->QH[i] = (hcd_QH_st *)p;
+		hcdPtr->asyncQH[i] = (hcd_QH_st *)p;
 		p += HCD_dQH_ALIGN;
 	}
 	Xil_DCacheFlush();
 
 	//Initialize the dTD pointers
 	for (i = 0; i < HCD_MAX_QTD; i++) {
-		hcdPtr->qTD[i] = (hcd_qTD_st *)p;
+		hcdPtr->asyncqTD[i] = (hcd_qTD_st *)p;
 		p += HCD_dTD_ALIGN;
 	}
 	Xil_DCacheFlush();
@@ -114,20 +114,33 @@ static void hcd_Initialize_Queues(hcd_t *hcdPtr){
 	//Initialize the qTD buffer pointers
 	for (i = 0; i < HCD_MAX_QTD; i++) {
 		for(j = 0; j < HCD_NUM_BUFFER_PTR; j++){
-			hcdPtr->qTD[i]->buffer[j] = (u32)p;
+			hcdPtr->asyncqTD[i]->buffer[j] = (u32)p;
 			p += HCD_dQH_BASE_ALIGN;  //each buffer pointer is 4096 bytes size
 		}
 	}
-	Xil_DCacheFlush();
 }
 
-static void hcd_physAlign(hcd_t *hcd_Ptr){
+static void hcd_Initialize_asyncQueues(hcd_t *hcdPtr){
 
-	/* Align the buffer to a 2048 byte (HCD_dQH_BASE_ALIGN) boundary.*/
-	hcd_Ptr->PhysAligned = (hcd_Ptr->DMAMemPhys + HCD_dQH_BASE_ALIGN) & ~(HCD_dQH_BASE_ALIGN -1);
+	u8 *p;
+
+	p = (u8 *) hcdPtr->asycPhysAligned;
+
+	hcd_initializeQueues(hcdPtr, p);
+
 }
 
-static int hcd_qTDEnque(hcd_qTD_st *hcdPtr, hcd_qTD_st *qTD){
+static void hcd_Initialize_periodicQueues(hcd_t *hcdPtr){
+	u8 *p;
+
+	p = (u8 *) hcdPtr->periodicPhysAligned;
+
+	hcd_initializeQueues(hcdPtr, p);
+
+}
+
+
+static int hcd_asyncqTDEnque(hcd_qTD_st *hcdPtr, hcd_qTD_st *qTD){
 	int status = 0;
 
 	memcpy(hcdPtr, qTD,sizeof(hcd_qTD_st) - (5 * sizeof(u32)));
@@ -146,41 +159,79 @@ static int hcd_QHEnque(hcd_QH_st *hcdPtr, hcd_QH_st *QH){
 	return status;
 }
 
-static void hcd_QHInit(hcd_t *hcdPtr){
+static void hcd_periodicQHInit(hcd_t *hcdPtr){
 
 	//Initialize the QH pointers
 	for (int i = 0; i < (HCD_MAX_QH) ; i++) {
-		hcd_QHEnque(hcdPtr->QH[i], (hcd_QH_st *)&empty_QH);
+		hcd_QHEnque(hcdPtr->periodicQH[i], (hcd_QH_st *)&empty_QH);
 	}
 }
 
-static void hcd_qTDInit(hcd_t *hcdPtr){
+static void hcd_periodicqTDInit(hcd_t *hcdPtr){
 
 	//Initialize the QH pointers
 	for (int i = 0; i < HCD_MAX_QTD; i++) {
-		hcd_qTDEnque(hcdPtr->qTD[i], (hcd_qTD_st *)&empty_qTD);
+		hcd_asyncqTDEnque(hcdPtr->periodicqTD[i], (hcd_qTD_st *)&empty_qTD);
 	}
 }
 
-static void hcd_configureQueues(hcd_t *hcdPtr){
+static void hcd_asyncQHInit(hcd_t *hcdPtr){
 
-
-	/* Align the buffer to a 2048 byte (HDC_dQH_BASE_ALIGN) boundary.*/
-	hcd_physAlign(hcdPtr);
-
-	//Initilize the QH and qTD and point it to the aligned memory
-	hcd_Initialize_Queues(hcdPtr);
-
-	//Initialize QH pointer
-	hcd_QHInit(hcdPtr);
-	hcd_qTDInit(hcdPtr);
+	//Initialize the QH pointers
+	for (int i = 0; i < (HCD_MAX_QH) ; i++) {
+		hcd_QHEnque(hcdPtr->asyncQH[i], (hcd_QH_st *)&empty_QH);
+	}
 }
 
-static void hcd_initialize_memory(hcd_t *hcdPtr, u8 *MemPtr){
+static void hcd_asyncqTDInit(hcd_t *hcdPtr){
 
-	memset(MemPtr,0,MEMORY_SIZE);
-	Xil_DCacheFlushRange((unsigned int)MemPtr, MEMORY_SIZE);
-	hcdPtr->DMAMemPhys = (u32) MemPtr;
+	//Initialize the QH pointers
+	for (int i = 0; i < HCD_MAX_QTD; i++) {
+		hcd_asyncqTDEnque(hcdPtr->asyncqTD[i], (hcd_qTD_st *)&empty_qTD);
+	}
+}
+
+static void hcd_configurePeriodicQueues(hcd_t *hcdPtr){
+
+	/* Align the buffer to a 2048 byte (HCD_dQH_BASE_ALIGN) boundary.*/
+	hcdPtr->periodicPhysAligned 	= (hcdPtr->periodicDMAMemPhys 	+ HCD_dQH_BASE_ALIGN) & ~(HCD_dQH_BASE_ALIGN -1);
+
+	hcd_Initialize_periodicQueues(hcdPtr);
+
+	//Initialize QH pointer
+	hcd_periodicQHInit(hcdPtr);
+	hcd_periodicqTDInit(hcdPtr);
+}
+
+static void hcd_configureAsyncQueues(hcd_t *hcdPtr){
+
+	hcdPtr->asycPhysAligned 		= (hcdPtr->asyncDMAMemPhys 	+ HCD_dQH_BASE_ALIGN) & ~(HCD_dQH_BASE_ALIGN -1);
+
+	//Initilize the QH and qTD and point it to the aligned memory
+	hcd_Initialize_asyncQueues(hcdPtr);
+
+	//Initialize QH pointer
+	hcd_asyncQHInit(hcdPtr);
+	hcd_asyncqTDInit(hcdPtr);
+
+}
+
+
+static void hcd_configureQueues(hcd_t *hcdPtr){
+	hcd_configureAsyncQueues(hcdPtr);
+	hcd_configurePeriodicQueues(hcdPtr);
+}
+
+static void hcd_initialize_memory(hcd_t *hcdPtr, u8 *AsyncMemPtr, u8 *PeriodicMemPtr){
+
+	memset(AsyncMemPtr,0,MEMORY_SIZE);
+	Xil_DCacheFlushRange((unsigned int)AsyncMemPtr, MEMORY_SIZE);
+	hcdPtr->asyncDMAMemPhys = (u32) AsyncMemPtr;
+
+	memset(PeriodicMemPtr,0,MEMORY_SIZE);
+	Xil_DCacheFlushRange((unsigned int)PeriodicMemPtr, MEMORY_SIZE);
+	hcdPtr->periodicDMAMemPhys = (u32) PeriodicMemPtr;
+
 
 }
 
@@ -250,7 +301,7 @@ hcd_t * hcd_init(void){
 	hcd_resetUSB(hcdPtr);
 	hcd_configureUSBHost(hcdPtr);		//needs first to set the USB mode to host in order to write the queues
 
-	hcd_initialize_memory(hcdPtr, hcd_HostBuffer);
+	hcd_initialize_memory(hcdPtr, hcd_AsycHostBuffer, hcd_PeriodicHostBuffer);
 
 	hcd_configureQueues(hcdPtr);
 
@@ -505,6 +556,12 @@ static hcd_endpoint0* hcd_createSetConfiguration(u16 config){
 	return ep0Ptr;
 }
 
+void hcd_enquePeriodicQH(hcd_t *hcdPtr,hcd_endpoint* epPtr){
+
+
+
+}
+
 void hcd_sendSetupData(hcd_t *hcdPtr,hcd_endpoint0* ep0Ptr){
 
 	hcd_configureQueues(hcdPtr);
@@ -521,68 +578,68 @@ void hcd_sendSetupData(hcd_t *hcdPtr,hcd_endpoint0* ep0Ptr){
 	hcd_qTD_token token;
 
 	///// setup the next qTD
-	qTD.nextqTD 				= (int)hcdPtr->qTD[1] | 0x0;
+	qTD.nextqTD 				= (int)hcdPtr->asyncqTD[1] | 0x0;
 	qTD.nextqTD_alt 			= 0x1;
 	token.st = (hcd_qTD_token_st){0x80,HCD_SETUP_TOKEN,0,0,0,sizeof(hcd_SetupData),0};
 	qTD.token					= token.data;
-	hcd_qTDEnque(hcdPtr->qTD[0], &qTD);
-	memcpy((void*)(hcdPtr->qTD[0]->buffer[0]&0xfffff000), ep0Ptr, sizeof(hcd_SetupData));
+	hcd_asyncqTDEnque(hcdPtr->asyncqTD[0], &qTD);
+	memcpy((void*)(hcdPtr->asyncqTD[0]->buffer[0]&0xfffff000), ep0Ptr, sizeof(hcd_SetupData));
 	Xil_DCacheFlush();
 
 	if(ep0Ptr->expectReply){
 		///// setup the next qTD
-		qTD.nextqTD 				= (int)hcdPtr->qTD[2] | 0x0;
+		qTD.nextqTD 				= (int)hcdPtr->asyncqTD[2] | 0x0;
 		qTD.nextqTD_alt 			= 0x1;
 		token.st 					= (hcd_qTD_token_st){0x80,HCD_IN_TOKEN,0,0,0,(ep0Ptr->setupData.wLength),1};
 		qTD.token					= token.data;
-		hcd_qTDEnque(hcdPtr->qTD[1], &qTD);
+		hcd_asyncqTDEnque(hcdPtr->asyncqTD[1], &qTD);
 		Xil_DCacheFlush();
 
 //		xil_printf("setup length = %08X\r\n",ep0Ptr->setupData.wLength);
 
 		///// setup the next qTD
-		qTD.nextqTD 				= (int)hcdPtr->qTD[3] | 0x0;
+		qTD.nextqTD 				= (int)hcdPtr->asyncqTD[3] | 0x0;
 		qTD.nextqTD_alt 			= 0x1;
 		token.st = (hcd_qTD_token_st){0x80,HCD_OUT_TOKEN,0,0,1,0x0,1};
 		qTD.token					= token.data;
-		hcd_qTDEnque(hcdPtr->qTD[2], &qTD);
+		hcd_asyncqTDEnque(hcdPtr->asyncqTD[2], &qTD);
 		Xil_DCacheFlush();
 
 	}
 	else{
 		///// setup the next qTD
-		qTD.nextqTD 				= (int)hcdPtr->qTD[3] | 0x0;
+		qTD.nextqTD 				= (int)hcdPtr->asyncqTD[3] | 0x0;
 		qTD.nextqTD_alt 			= 0x1;
 		token.st 					= (hcd_qTD_token_st){0x80,HCD_IN_TOKEN,0,0,0,0,1};
 		qTD.token					= token.data;
-		hcd_qTDEnque(hcdPtr->qTD[1], &qTD);
+		hcd_asyncqTDEnque(hcdPtr->asyncqTD[1], &qTD);
 		Xil_DCacheFlush();
 	}
 
 	///// setup the next qTD
-	qTD.nextqTD 				= (int)hcdPtr->qTD[3] | 0x1;
+	qTD.nextqTD 				= (int)hcdPtr->asyncqTD[3] | 0x1;
 	qTD.nextqTD_alt 			= 0x1;
 	token.st = (hcd_qTD_token_st){0x00,0x0,0,0,1,0x0,0};
 	qTD.token					= token.data;
-	hcd_qTDEnque(hcdPtr->qTD[3], &qTD);
+	hcd_asyncqTDEnque(hcdPtr->asyncqTD[3], &qTD);
 	Xil_DCacheFlush();
 
 
 
-	////// setup periodic list
-	memcpy((void*)hcdPtr->QH[0] , &empty_QH, sizeof(hcd_QH_st));
-	Xil_DCacheFlush();
+//	////// setup periodic list
+//	memcpy((void*)hcdPtr->QH[0] , &empty_QH, sizeof(hcd_QH_st));
+//	Xil_DCacheFlush();
 
 
 	memcpy(&QH , &empty_QH, sizeof(hcd_QH_st));
 	w1.st = (hcd_QH_endpoint_word1_st){ep0Ptr->address,0,0,USB_SPEED,0,1,ep0Ptr->maxPacketSize,0,0xf};
 	w2.st = (hcd_QH_endpoint_word2_st){0,0,0,0,1};
-	QH.nextQH = (int)hcdPtr->QH[1] | 0x0 | 0x2;
+	QH.nextQH = (int)hcdPtr->asyncQH[0] | 0x0 | 0x2;
 	QH.endpoint_word1 		= w1.data;
 	QH.endpoint_word2 		= w2.data;
-	QH.overlay.nextqTD 		= (int)hcdPtr->qTD[0] | 0x0;
+	QH.overlay.nextqTD 		= (int)hcdPtr->asyncqTD[0] | 0x0;
 	QH.overlay.nextqTD_alt 	= 0x1;
-	hcd_QHEnque(hcdPtr->QH[1], &QH);
+	hcd_QHEnque(hcdPtr->asyncQH[0], &QH);
 
 
 
@@ -593,7 +650,7 @@ void hcd_sendSetupData(hcd_t *hcdPtr,hcd_endpoint0* ep0Ptr){
 static hcd_endpoint0*  hcd_parseDeviceDescriptor(hcd_t *hcdPtr){
 	hcd_endpoint0 *ep0Ptr  = hcd_getEp0();
 
-	hcd_standardDeviceDescriptor* stdDevDesc =(hcd_standardDeviceDescriptor*)(hcdPtr->qTD[1]->buffer[0] & 0xfffff000);
+	hcd_standardDeviceDescriptor* stdDevDesc =(hcd_standardDeviceDescriptor*)(hcdPtr->asyncqTD[1]->buffer[0] & 0xfffff000);
 	ep0Ptr->deviceDescriptor = *stdDevDesc;
 
 	return ep0Ptr;
@@ -604,10 +661,10 @@ static hcd_endpoint0*  hcd_parseConfigurationDescriptor(hcd_t *hcdPtr){
 	void* ptr = NULL;
 	static u8 descriptors[4096];	//todo: calculate based on max configs/interface/endpoints supported
 
-	hcd_standardConfigurationDescriptor_st* confDevDesc =(hcd_standardConfigurationDescriptor_st*)(hcdPtr->qTD[1]->buffer[0] & 0xfffff000);
+	hcd_standardConfigurationDescriptor_st* confDevDesc =(hcd_standardConfigurationDescriptor_st*)(hcdPtr->asyncqTD[1]->buffer[0] & 0xfffff000);
 	ep0Ptr->configurationDescriptor.stdConfiguration = *confDevDesc;
 
-	memcpy(&descriptors, (void*)(hcdPtr->qTD[1]->buffer[0] & 0xfffff000), confDevDesc->wTotalLength);
+	memcpy(&descriptors, (void*)(hcdPtr->asyncqTD[1]->buffer[0] & 0xfffff000), confDevDesc->wTotalLength);
 
 	int i = 0;
 	int interface 	= -1;
@@ -653,7 +710,7 @@ static hcd_endpoint0*  hcd_parseConfigurationDescriptor(hcd_t *hcdPtr){
 static hcd_endpoint0*  hcd_parseStatus(hcd_t *hcdPtr){
 	hcd_endpoint0 *ep0Ptr  = hcd_getEp0();
 
-	u16* devStatus =(u16*)(hcdPtr->qTD[1]->buffer[0] & 0xfffff000);
+	u16* devStatus =(u16*)(hcdPtr->asyncqTD[1]->buffer[0] & 0xfffff000);
 	ep0Ptr->deviceStatus = *devStatus;
 
 	return ep0Ptr;

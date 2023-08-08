@@ -16,7 +16,7 @@ void hid_callbackHandler(void *CallBackRef, u32 Mask){
 	hcd_t *hcdPtr = (hcd_t*)CallBackRef;
 
 
-	hid_printLine((u8*) hcdPtr->qTD[1]->buffer[0], 0x003b, "Keyboard Report");
+	hid_printLine((u8*) hcdPtr->asyncqTD[1]->buffer[0], 0x003b, "Keyboard Report");
 //	xil_printf ("[HID] %s\r\n", "Hit class");
 }
 

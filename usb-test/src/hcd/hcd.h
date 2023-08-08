@@ -19,13 +19,16 @@ extern "C" {
 #define NOT_BUSY 0
 
 
-#define HCD_NUM_BUFFER_PTR 5
+#define HCD_NUM_BUFFER_PTR 1
 #define HCD_MAX_QTD	4
-#define HCD_MAX_QH	2
+#define HCD_MAX_QH	1
+#define HCD_MAX_PERIODIC_QH 2
+#define HCD_MAX_PERIODIC_QTD 2
+
 
 
 #define ALIGNMENT_CACHELINE  __attribute__ ((aligned (32)))
-#define MEMORY_SIZE (64 * 1024 * 2 )
+#define MEMORY_SIZE ((HCD_NUM_BUFFER_PTR * 4096) + (HCD_MAX_QTD * HCD_dTD_ALIGN)) //  + (HCD_MAX_QH * HCD_dQH_ALIGN)) + ((HCD_NUM_BUFFER_PTR * 4096) + (HCD_MAX_PERIODIC_QTD * HCD_dTD_ALIGN)  + (HCD_MAX_PERIODIC_QH * HCD_dQH_ALIGN))  //(64 * 1024 * 2 )
 #define USBDEVICEID 0	//xilinx zynq could have 2 instances of USB host
 #define HCD_ERROR -1
 
@@ -152,10 +155,15 @@ typedef enum {
 
 typedef struct{
 	hcd_config config;
-	u32 DMAMemPhys;
-	u32 PhysAligned;
-	hcd_QH_st * QH[HCD_MAX_QH];
-	hcd_qTD_st * qTD[HCD_MAX_QTD];
+	u32 asyncDMAMemPhys;
+	u32 periodicDMAMemPhys;
+	u32 asycPhysAligned;
+	u32 periodicPhysAligned;
+	hcd_QH_st * asyncQH[HCD_MAX_QH];
+	hcd_qTD_st * asyncqTD[HCD_MAX_QTD];
+	hcd_QH_st * periodicQH[HCD_MAX_QH];
+	hcd_qTD_st * periodicqTD[HCD_MAX_QTD];
+
 	u8 busy;							//set to 1 when the async list is enabled
 
 	hcd_IntrHandlerFunc	HandlerFunc;	/**< Handler function for the controller. */
