@@ -30,7 +30,7 @@ extern "C" {
 
 void hid_callbackHandler(void *CallBackRef, u32 Mask);
 void hid_requestReport(hcd_t *hcdPtr);
-
+void hid_printLine(u8* data, u32 size, char* comment);
 
 #ifdef __cplusplus
 }

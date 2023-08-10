@@ -21,14 +21,14 @@ extern "C" {
 
 #define HCD_NUM_BUFFER_PTR 1
 #define HCD_MAX_QTD	4
-#define HCD_MAX_QH	1
+#define HCD_MAX_QH	2
 #define HCD_MAX_PERIODIC_QH 2
 #define HCD_MAX_PERIODIC_QTD 2
 
 
 
 #define ALIGNMENT_CACHELINE  __attribute__ ((aligned (32)))
-#define MEMORY_SIZE ((HCD_NUM_BUFFER_PTR * 4096) + (HCD_MAX_QTD * HCD_dTD_ALIGN)) //  + (HCD_MAX_QH * HCD_dQH_ALIGN)) + ((HCD_NUM_BUFFER_PTR * 4096) + (HCD_MAX_PERIODIC_QTD * HCD_dTD_ALIGN)  + (HCD_MAX_PERIODIC_QH * HCD_dQH_ALIGN))  //(64 * 1024 * 2 )
+#define MEMORY_SIZE (((HCD_NUM_BUFFER_PTR * 4096)*HCD_MAX_QTD) + (HCD_MAX_QTD * HCD_dTD_ALIGN) + (HCD_MAX_QH * HCD_dQH_ALIGN) +4096) //  + (HCD_MAX_QH * HCD_dQH_ALIGN)) + ((HCD_NUM_BUFFER_PTR * 4096) + (HCD_MAX_PERIODIC_QTD * HCD_dTD_ALIGN)  + (HCD_MAX_PERIODIC_QH * HCD_dQH_ALIGN))  //(64 * 1024 * 2 )
 #define USBDEVICEID 0	//xilinx zynq could have 2 instances of USB host
 #define HCD_ERROR -1
 
@@ -297,6 +297,7 @@ int hcd_cleanup(hcd_t *hcdPtr);
 void hcd_printEP0(void);
 int hcd_connectClassHandler(hcd_t *hcdPtr, hcd_IntrHandlerFunc CallBackFunc,void *CallBackRef);
 void hcd_sendSetupData(hcd_t *hcdPtr,hcd_endpoint0* ep0Ptr);
+void hcd_enquePeriodicQH(hcd_t *hcdPtr,hcd_endpoint0* epPtr);
 hcd_endpoint0* hcd_getEp0();
 
 #ifdef __cplusplus

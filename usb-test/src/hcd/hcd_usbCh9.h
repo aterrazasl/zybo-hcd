@@ -100,11 +100,16 @@ typedef struct {
 	u8 expectReply;
 	hcd_standardConfigurationDescriptor configurationDescriptor;
 	u16 deviceStatus;
+	u8 endpointNum;
 
 }hcd_endpoint0;
 
 typedef struct{
+	hcd_SetupData setupData;
 	u8 endpointNum;
+	u8 expectReply;
+	u8 maxPacketSize;
+	u8 address;
 
 }hcd_endpoint;
 
