@@ -19,16 +19,12 @@ void clearLED(u8 led){
 
 }
 
-
 void hid_printLine(u8* data, u32 size, char* comment){
 	int i;
 	for(i = 0; i < size; i++){
 		xil_printf("%02X", *(data+i));
 	}
 	xil_printf(" // %s\r", comment);
-
-
-
 }
 
 static u8 evaluateDiff(u8* new){
@@ -38,27 +34,18 @@ static u8 evaluateDiff(u8* new){
 		if(old[i]!= new[i]){
 			return 1;
 		}
-
 	}
 	return 0;
 }
 
 void hid_callbackHandler(void *CallBackRef, u32 Mask){
-
-
-
 	hcd_t *hcdPtr = (hcd_t*)CallBackRef;
 	if(evaluateDiff(((u8*)(hcdPtr->periodicqTD[1]->buffer[0]&0xfffff000)))){
 		hid_printLine((u8*)(hcdPtr->periodicqTD[1]->buffer[0]&0xfffff000), 0x0008, "Keyboard Report");
 
 	}
-
 	hcd_enquePeriodicQH(hcdPtr,hid_createGetReportRequest());
-
-//	xil_printf ("[HID] %s\r\n", "Hit class");
-
 }
-
 
 static hcd_endpoint0* hid_createGetReportRequest(void){
 
@@ -81,9 +68,6 @@ static hcd_endpoint0* hid_createGetReportRequest(void){
 }
 
 void hid_requestReport(hcd_t *hcdPtr){
-
 	hcd_enquePeriodicQH(hcdPtr,hid_createGetReportRequest());
-
-//	hcd_sendSetupData(hcdPtr,hid_createGetReportRequest());
 
 }

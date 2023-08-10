@@ -57,21 +57,7 @@ int main()
 		if (i == 0){
 			i=10000000;
 			// do something...
-//			hid_requestReport(hcdPtr);
-//			hid_printLine((u8*)(hcdPtr->periodicqTD[1]->buffer[0]&0xfffff000), 0x0008, "Keyboard Report");
-
-//			hid_printLine((u8*)(hcdPtr->periodicqTD[1]->buffer[0]&0xfffff000), 0x003b, "Keyboard Report");
-//			hid_requestReport(hcdPtr);
-//			xil_printf("R%08X = %08X ",HCD_CMD_OFFSET,hcd_ReadReg(hcdPtr->config.BaseAddress,	HCD_CMD_OFFSET));
-//			xil_printf("R%08X = %08X ",HCD_ISR_OFFSET,hcd_ReadReg(hcdPtr->config.BaseAddress,	HCD_ISR_OFFSET));
-//			xil_printf("R%08X = %08X ",HCD_LISTBASE_OFFSET,hcd_ReadReg(hcdPtr->config.BaseAddress,	HCD_LISTBASE_OFFSET));
-//			xil_printf("R%08X = %08X ",HCD_ASYNCLISTADDR_OFFSET,hcd_ReadReg(hcdPtr->config.BaseAddress,	HCD_ASYNCLISTADDR_OFFSET));
-//			xil_printf("%s","\r");
-//			Xil_Out32(LEDBASE_DATA, ~(Xil_In32(LEDBASE_DATA) | (1<<3)) & 0x00000008);
-
 		}
-
-
     }
 
     status = hcd_stop(hcdPtr);	// Stops interrupts
