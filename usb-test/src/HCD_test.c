@@ -58,7 +58,7 @@ int main()
 			i=10000000;
 			// do something...
 //			hid_requestReport(hcdPtr);
-			hid_printLine((u8*)(hcdPtr->periodicqTD[1]->buffer[0]&0xfffff000), 0x0008, "Keyboard Report");
+//			hid_printLine((u8*)(hcdPtr->periodicqTD[1]->buffer[0]&0xfffff000), 0x0008, "Keyboard Report");
 
 //			hid_printLine((u8*)(hcdPtr->periodicqTD[1]->buffer[0]&0xfffff000), 0x003b, "Keyboard Report");
 //			hid_requestReport(hcdPtr);

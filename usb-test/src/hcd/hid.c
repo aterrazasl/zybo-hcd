@@ -31,12 +31,28 @@ void hid_printLine(u8* data, u32 size, char* comment){
 
 }
 
+static u8 evaluateDiff(u8* new){
+	static u8 old[8];
+	int i;
+	for(i =0;i<8;i++){
+		if(old[i]!= new[i]){
+			return 1;
+		}
+
+	}
+	return 0;
+}
+
 void hid_callbackHandler(void *CallBackRef, u32 Mask){
 
 
 
 	hcd_t *hcdPtr = (hcd_t*)CallBackRef;
-//	hid_printLine((u8*)0x114000, 0x0008, "Keyboard Report");
+	if(evaluateDiff(((u8*)(hcdPtr->periodicqTD[1]->buffer[0]&0xfffff000)))){
+		hid_printLine((u8*)(hcdPtr->periodicqTD[1]->buffer[0]&0xfffff000), 0x0008, "Keyboard Report");
+
+	}
+
 	hcd_enquePeriodicQH(hcdPtr,hid_createGetReportRequest());
 
 //	xil_printf ("[HID] %s\r\n", "Hit class");
