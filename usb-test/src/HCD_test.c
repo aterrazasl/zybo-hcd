@@ -57,6 +57,10 @@ int main()
 		if (i == 0){
 			i=10000000;
 			// do something...
+//			hid_requestReport(hcdPtr);
+//			hid_printLine((u8*)(hcdPtr->periodicqTD[1]->buffer[0]&0xfffff000), 0x000a, "Keyboard Report");
+//			hid_printLine((u8*)(hcdPtr->asyncqTD[1]->buffer[0]&0xfffff000), 0x000a, "Keyboard Report");
+//			xil_printf("state = %d\r", hcdPtr->state);
 		}
     }
 

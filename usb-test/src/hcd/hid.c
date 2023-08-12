@@ -69,5 +69,5 @@ static hcd_endpoint0* hid_createGetReportRequest(void){
 
 void hid_requestReport(hcd_t *hcdPtr){
 	hcd_enquePeriodicQH(hcdPtr,hid_createGetReportRequest());
-
+//	hcd_sendSetupData(hcdPtr,hid_createGetReportRequest());
 }

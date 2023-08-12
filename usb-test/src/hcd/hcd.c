@@ -3,7 +3,6 @@
 #include "xscugic.h"
 
 
-
 static hcd_t hcd;
 static u8 hcd_AsycHostBuffer[MEMORY_SIZE] ALIGNMENT_CACHELINE;	//todo: replace this with Dynamic memory
 static u8 hcd_PeriodicHostBuffer[MEMORY_SIZE] ALIGNMENT_CACHELINE;	//todo: replace this with Dynamic memory
@@ -498,6 +497,12 @@ int hcd_cleanup(hcd_t *hcdPtr){		//todo implement the cleanup proces
 	return 0;
 }
 
+static void hcd_initEp0(){
+	ep0.address =0;
+	ep0.maxPacketSize = 0;
+	hcd_setQueueBusy(NOT_BUSY);
+}
+
 static void hcd_changeAddress(u8 address){
 	ep0.address =address;
 }
@@ -525,7 +530,6 @@ static hcd_endpoint0* hcd_createGetDeviceDescriptor(void){
 	else{
 		ep0Ptr->maxPacketSize = ep0Ptr->deviceDescriptor.bMaxPacketSize0;
 	}
-	ep0Ptr->speed = 0;
 	ep0Ptr->expectReply = 1;
 
 	Xil_DCacheFlush();
@@ -543,7 +547,6 @@ static hcd_endpoint0* hcd_createSetAddress(void){
 	ep0Ptr->setupData.wIndex 		= hcd_swap_uint16(0x0000);
 	ep0Ptr->setupData.wLength 		= (0);
 
-	ep0Ptr->speed = 0;
 	ep0Ptr->expectReply = 0;
 	return ep0Ptr;
 }
@@ -564,7 +567,6 @@ static hcd_endpoint0* hcd_createGetConfiguration(void){
 		ep0Ptr->setupData.wLength 		= ep0Ptr->configurationDescriptor.stdConfiguration.wTotalLength;
 	}
 
-	ep0Ptr->speed = 0;
 	ep0Ptr->expectReply = 1;
 	return ep0Ptr;
 }
@@ -579,7 +581,6 @@ static hcd_endpoint0* hcd_createGetStatus(void){
 	ep0Ptr->setupData.wIndex		= hcd_swap_uint16(0x0000);
 	ep0Ptr->setupData.wLength 		= 2;
 
-	ep0Ptr->speed = 0;
 	ep0Ptr->expectReply = 1;
 	return ep0Ptr;
 }
@@ -594,7 +595,6 @@ static hcd_endpoint0* hcd_createSetConfiguration(u16 config){
 	ep0Ptr->setupData.wIndex		= hcd_swap_uint16(0x0000);
 	ep0Ptr->setupData.wLength 		= 0;
 
-	ep0Ptr->speed = 0;
 	ep0Ptr->expectReply = 1;
 
 	return ep0Ptr;
@@ -607,14 +607,14 @@ void hcd_enquePeriodicQH(hcd_t *hcdPtr,hcd_endpoint0* epPtr){
 
 	epPtr->address = 1;
 	epPtr->endpointNum = 1;
-	epPtr->expectReply = 1;
 	epPtr->maxPacketSize = 64;
 
 	hcd_QH_st QH;
 	hcd_QH_endpoint_word1 w1;
 	hcd_QH_endpoint_word2 w2;
+	int cflag = epPtr->endpointNum == 0?1:0;
 
-	#define USB_SPEED 0x02
+
 
 	/////////////////////////setup qTDs
 	hcd_qTD_st qTD;
@@ -631,9 +631,9 @@ void hcd_enquePeriodicQH(hcd_t *hcdPtr,hcd_endpoint0* epPtr){
 
 	if(epPtr->expectReply){
 		///// setup the next qTD
-		qTD.nextqTD 				= (int)hcdPtr->periodicqTD[2] | 0x0;
+		qTD.nextqTD 				= (int)hcdPtr->periodicqTD[2] | 0x1;
 		qTD.nextqTD_alt 			= 0x1;
-		token.st 					= (hcd_qTD_token_st){0x80,HCD_IN_TOKEN,0,0,0,(epPtr->setupData.wLength),1};
+		token.st 					= (hcd_qTD_token_st){0x80,HCD_IN_TOKEN,0,0,1,(epPtr->setupData.wLength),0};
 		qTD.token					= token.data;
 		hcd_asyncqTDEnque(hcdPtr->periodicqTD[1], &qTD);
 		Xil_DCacheFlush();
@@ -641,7 +641,7 @@ void hcd_enquePeriodicQH(hcd_t *hcdPtr,hcd_endpoint0* epPtr){
 //		xil_printf("setup length = %08X\r\n",ep0Ptr->setupData.wLength);
 
 		///// setup the next qTD
-		qTD.nextqTD 				= (int)hcdPtr->periodicqTD[3] | 0x0;
+		qTD.nextqTD 				= (int)hcdPtr->periodicqTD[2] | 0x1;
 		qTD.nextqTD_alt 			= 0x1;
 		token.st = (hcd_qTD_token_st){0x80,HCD_OUT_TOKEN,0,0,1,0x0,1};
 		qTD.token					= token.data;
@@ -651,7 +651,7 @@ void hcd_enquePeriodicQH(hcd_t *hcdPtr,hcd_endpoint0* epPtr){
 	}
 	else{
 		///// setup the next qTD
-		qTD.nextqTD 				= (int)hcdPtr->periodicqTD[3] | 0x0;
+		qTD.nextqTD 				= (int)hcdPtr->periodicqTD[3] | 0x1;
 		qTD.nextqTD_alt 			= 0x1;
 		token.st 					= (hcd_qTD_token_st){0x80,HCD_IN_TOKEN,0,0,0,0,1};
 		qTD.token					= token.data;
@@ -675,18 +675,18 @@ void hcd_enquePeriodicQH(hcd_t *hcdPtr,hcd_endpoint0* epPtr){
 
 
 	memcpy(&QH , &empty_QH, sizeof(hcd_QH_st));
-	w1.st = (hcd_QH_endpoint_word1_st){epPtr->address,0,0,USB_SPEED,0,1,epPtr->maxPacketSize,0,0xf};
-	w2.st = (hcd_QH_endpoint_word2_st){0,0,0,0,1};
+	w1.st = (hcd_QH_endpoint_word1_st){epPtr->address,0,epPtr->endpointNum,epPtr->speed,0,0,epPtr->maxPacketSize,cflag,0xf};
+	w2.st = (hcd_QH_endpoint_word2_st){0,0,0,0,3};
 	QH.nextQH = (int)hcdPtr->periodicQH[0] | 0x1 | 0x2;
 	QH.endpoint_word1 		= w1.data;
 	QH.endpoint_word2 		= w2.data;
-	QH.overlay.nextqTD 		= (int)hcdPtr->periodicqTD[0] | 0x0;
+	QH.overlay.nextqTD 		= (int)hcdPtr->periodicqTD[1] | 0x0;
 	QH.overlay.nextqTD_alt 	= 0x1;
 	Xil_DCacheFlush();
 	hcd_QHEnque(hcdPtr->periodicQH[0], &QH);
 
 	memcpy(&QH , &empty_QH, sizeof(hcd_QH_st));
-	w1.st = (hcd_QH_endpoint_word1_st){epPtr->address,0,0,USB_SPEED,0,0,epPtr->maxPacketSize,0,0xf};
+	w1.st = (hcd_QH_endpoint_word1_st){epPtr->address,1,epPtr->endpointNum,epPtr->speed,0,0,epPtr->maxPacketSize,cflag,0xf};
 	w2.st = (hcd_QH_endpoint_word2_st){0,0,0,0,1};
 	QH.nextQH = (int)hcdPtr->periodicQH[1] | 0x1 | 0x2;
 	QH.endpoint_word1 		= w1.data;
@@ -724,7 +724,6 @@ void hcd_sendSetupData(hcd_t *hcdPtr,hcd_endpoint0* ep0Ptr){
 	hcd_QH_endpoint_word1 w1;
 	hcd_QH_endpoint_word2 w2;
 
-	#define USB_SPEED 0x02
 
 	/////////////////////////setup qTDs
 	hcd_qTD_st qTD;
@@ -785,13 +784,14 @@ void hcd_sendSetupData(hcd_t *hcdPtr,hcd_endpoint0* ep0Ptr){
 
 
 	memcpy(&QH , &empty_QH, sizeof(hcd_QH_st));
-	w1.st = (hcd_QH_endpoint_word1_st){ep0Ptr->address,0,0,USB_SPEED,0,1,ep0Ptr->maxPacketSize,0,0xf};
+	w1.st = (hcd_QH_endpoint_word1_st){ep0Ptr->address,0,0,ep0Ptr->speed,0,1,ep0Ptr->maxPacketSize,1,0xf};
 	w2.st = (hcd_QH_endpoint_word2_st){0,0,0,0,1};
 	QH.nextQH = (int)hcdPtr->asyncQH[0] | 0x0 | 0x2;
 	QH.endpoint_word1 		= w1.data;
 	QH.endpoint_word2 		= w2.data;
 	QH.overlay.nextqTD 		= (int)hcdPtr->asyncqTD[0] | 0x0;
 	QH.overlay.nextqTD_alt 	= 0x1;
+	Xil_DCacheFlush();
 	hcd_QHEnque(hcdPtr->asyncQH[0], &QH);
 
 
@@ -806,6 +806,8 @@ static hcd_endpoint0*  hcd_parseDeviceDescriptor(hcd_t *hcdPtr){
 	hcd_standardDeviceDescriptor* stdDevDesc =(hcd_standardDeviceDescriptor*)(hcdPtr->asyncqTD[1]->buffer[0] & 0xfffff000);
 	ep0Ptr->deviceDescriptor = *stdDevDesc;
 
+	u32 port = hcd_ReadReg(hcdPtr->config.BaseAddress,HCD_PORTSCR1_OFFSET);
+	ep0Ptr->speed =  (port>>26) & 0x03;
 	return ep0Ptr;
 }
 
@@ -876,6 +878,8 @@ static void hcd_enumerationStateMachine(hcd_t *hcdPtr){
 		break;
 	case(hcd_powered):
 		hcd_resetPort(hcdPtr);
+		hcd_initEp0();
+
 		hcdPtr->state = hcd_getDeviceDescriptor;
 	break;
 
@@ -1052,14 +1056,14 @@ static void hcd_UsbHostIntrHandler(void *CallBackRef, u32 Mask)
 		if(  (portStatus & HCD_PORTSCR_CCS_MASK) == HCD_PORTSCR_CCS_MASK ){
 			if(hcdPtr->deviceConnected ==0){
 				hcdPtr->deviceConnected = 1;
-				hcdPtr->speedDetected = portStatus >> 26;
+				hcdPtr->speedDetected = (portStatus >> 26) & 0x03;
 				hcdPtr->state  = hcd_powered;
 				hcdPtr->flags.data =0;
 			}
 		}
 		else {
 			hcdPtr->deviceConnected = 0;
-			hcdPtr->speedDetected = portStatus >> 26;;
+			hcdPtr->speedDetected = (portStatus >> 26) & 0x03;
 			hcdPtr->state = hcd_disconnected;
 		}
 	}
